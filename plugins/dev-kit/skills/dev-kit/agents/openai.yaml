@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit"
+  short_description: "Orchestrate a complete, verified development flow"
+  default_prompt: "Use $dev-kit to plan, implement, test, review, and prepare my change."

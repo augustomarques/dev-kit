@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: Git"
+  short_description: "Prepare atomic trunk-based Git delivery"
+  default_prompt: "Use $dev-kit-git to prepare verified commits and a short-lived pull request."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: Develop"
+  short_description: "Implement approved tasks with test-driven delivery"
+  default_prompt: "Use $dev-kit-develop to implement this task and meet every acceptance criterion."

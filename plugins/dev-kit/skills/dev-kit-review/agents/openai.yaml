@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: Review"
+  short_description: "Review changes against requirements and quality gates"
+  default_prompt: "Use $dev-kit-review to review this change against its task and repository standards."
