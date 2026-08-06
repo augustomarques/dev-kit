@@ -1,0 +1,37 @@
+{
+  "name": "dev-kit",
+  "version": "0.1.0+codex.20260806022037",
+  "description": "Plan, implement, test, review, and deliver software changes with explicit quality gates.",
+  "author": {
+    "name": "Augusto Marques",
+    "url": "https://github.com/augustomarques"
+  },
+  "homepage": "https://github.com/augustomarques/dev-kit",
+  "repository": "https://github.com/augustomarques/dev-kit",
+  "license": "MIT",
+  "keywords": [
+    "development",
+    "tdd",
+    "code-review",
+    "e2e",
+    "git"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Dev Kit",
+    "shortDescription": "A guarded, end-to-end software delivery workflow.",
+    "longDescription": "Turn technical input into executable tasks, implement with test-driven development, evaluate end-to-end coverage, review every acceptance criterion, and prepare atomic trunk-based delivery.",
+    "developerName": "Augusto Marques",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/augustomarques/dev-kit",
+    "defaultPrompt": [
+      "Turn this specification into tasks and deliver them.",
+      "Implement this task with tests and review it.",
+      "Review this pull request against its requirements."
+    ]
+  }
+}

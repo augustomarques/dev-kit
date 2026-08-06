@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: Test E2E"
+  short_description: "Evaluate and implement reliable end-to-end tests"
+  default_prompt: "Use $dev-kit-test-e2e to assess and test this user journey end to end."

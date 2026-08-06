@@ -1,0 +1,12 @@
+[run]
+branch = True
+parallel = True
+patch = subprocess
+source =
+    plugins/dev-kit/skills/dev-kit-create-tasks/scripts
+    plugins/dev-kit/skills/dev-kit-git/scripts
+
+[report]
+fail_under = 81
+show_missing = True
+skip_covered = True
