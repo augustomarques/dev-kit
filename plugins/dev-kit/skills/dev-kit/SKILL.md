@@ -12,7 +12,7 @@ Coordinate the workflow while keeping decisions, repository state, and quality e
 1. Inspect the repository, its instructions, the supplied task or document, linked issues, ADRs, test configuration, and delivery conventions. Resolve facts with tools; never ask the user for discoverable information.
 2. Build a decision tree for material unknowns. Ask every currently unblocked decision in one concise round, include a recommendation, wait for the answers, then recompute the frontier. Never silently assume a product decision, interface, scope boundary, destructive action, or external publication target.
 3. Turn a simple request into an explicit execution specification. For documents or multiple deliverables, use `../dev-kit-create-tasks/SKILL.md`.
-4. Present the final tasks, dependency order, test seams, E2E decision, branch topology, and acceptance evidence plan. Obtain one explicit approval gate before editing code or publishing tasks.
+4. Present the final tasks, dependency order, test seams, E2E decision, branch topology, and acceptance evidence plan. Obtain one explicit approval gate before editing code or publishing tasks. Approval of an end-to-end execution also authorizes its normal draft-PR delivery unless the user explicitly limits the work to local changes.
 
 ## 2. Schedule work
 
@@ -36,8 +36,8 @@ If a required correction materially expands scope, changes a public contract, or
 
 - Summarize acceptance criteria with direct evidence from commands and changed behavior.
 - Report coverage for changed code; require a value strictly greater than 80% and no measurable global regression.
-- Ask for explicit authorization before every push or pull-request creation. The initial approval does not authorize either action.
-- After authorization, push the task branch and open one pull request against trunk. Stop dependent tasks until the blocker is integrated.
+- For an approved end-to-end task, push its branch and open or update one draft pull request against trunk. Assign it to the authenticated platform user, describe what changed, and reference the canonical task when one exists. For local-only requests, ask before publishing.
+- Verify the PR draft state, assignee, body, and task reference before reporting delivery. Stop dependent tasks until the blocker is integrated.
 
 ## Optional helpers
 

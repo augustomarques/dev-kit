@@ -1,0 +1,38 @@
+{
+  "skill_name": "dev-kit-git",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Conclua a entrega da tarefa GitHub #84. O código já passou em todos os testes e está commitado na branch da tarefa.",
+      "expected_output": "Entrega por PR em draft, atribuída ao usuário autenticado, com referência exata a #84 e descrição do que mudou.",
+      "files": [],
+      "assertions": [
+        "The response creates or updates a pull request in draft state.",
+        "The response resolves and assigns the authenticated platform user rather than inferring an owner.",
+        "The pull-request body contains the exact task reference #84 and a substantive description of what changed.",
+        "The response verifies draft state, assignee, body, and task reference before claiming delivery."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Publique esta correção concluída. Não existe ticket para ela.",
+      "expected_output": "Entrega por PR em draft e atribuída ao usuário autenticado, sem inventar uma referência de tarefa e com descrição do que mudou.",
+      "files": [],
+      "assertions": [
+        "The response creates or updates a pull request in draft state and assigns the authenticated user.",
+        "The pull-request body describes what changed without inventing a task or ticket reference.",
+        "The response verifies the resulting pull-request metadata before claiming delivery."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Prepare apenas os commits locais desta tarefa; não publique nada ainda.",
+      "expected_output": "Commits locais preparados sem push ou PR, preservando o limite explícito do usuário.",
+      "files": [],
+      "assertions": [
+        "The response does not push or create a pull request.",
+        "The response makes clear that draft-PR delivery remains pending because the user explicitly requested local-only work."
+      ]
+    }
+  ]
+}
