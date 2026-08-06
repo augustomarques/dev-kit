@@ -1,6 +1,6 @@
 ---
 name: dev-kit-git
-description: Prepare safe trunk-based Git delivery with short-lived task branches, atomic green commits, Conventional Commit validation, explicit pre-push checks, and one pull request per task. Use when the user asks to branch, commit, organize commits, push, open a PR, or deliver completed development work.
+description: Deliver completed development work through short-lived trunk-based branches, atomic green Conventional Commits, explicit pre-push checks, and a verified draft pull request assigned to the authenticated user. Use when the user asks to branch, commit, organize commits, push, open or update a PR, or finish and deliver an engineering task.
 ---
 
 # Prepare Git Delivery
@@ -29,14 +29,45 @@ Before publication, require a `PASS` from `../dev-kit-review/SKILL.md`, includin
 
 Never push known-broken code. A pre-existing failing gate still blocks publication; report it rather than normalizing it.
 
-## 4. Publish only with approval
+## 4. Deliver through a draft pull request
 
-Ask explicitly before pushing. Ask explicitly before creating a pull request; one answer may authorize both only when the user clearly says so.
+An approved request to complete or deliver a task authorizes the normal terminal delivery steps: push the task branch without force and create or update its draft pull request. If the user limited the request to local changes, review, or commit preparation, respect that boundary and ask before publishing.
 
-After approval:
+After the publication gate passes:
 
 1. Push the task branch without force.
-2. Open one PR against trunk with summary, canonical task link, acceptance evidence, test commands, coverage, E2E decision, and risk notes.
-3. Return the branch, commit SHAs, and PR URL. Do not start a dependent task until its blocker is integrated into trunk.
+2. Create one pull request against trunk as **draft**, or update the existing pull request for the same task branch and convert it to draft when necessary. A completed task is not delivered until this draft PR exists.
+3. Resolve the authenticated platform username from the active API/CLI session. Never infer it from the repository owner, Git author, or task author. Assign the PR to that user; on GitHub, resolve the login with `gh api user --jq .login` and assign it with `gh pr edit <pr> --add-assignee <login>` when no native create-PR field is available.
+4. Build the PR body from the required template below. When a stable task or ticket exists, include its exact ID or URL using a neutral relationship such as `Related task: <reference>`. Use an auto-closing keyword only when the approved task explicitly requires it. If no task exists, omit the task-reference section rather than inventing one.
+5. Query the created PR and verify that it is draft, contains the authenticated user in `assignees`, includes a substantive description of what changed, and contains the exact task reference when one exists. On GitHub, save `gh pr view <pr> --json url,isDraft,assignees,body` and run `python3 scripts/validate_pr_delivery.py --file <snapshot> --assignee <login> [--task-ref <reference>]`. Treat a failed assignment, missing reference, or non-draft PR as incomplete delivery and report the recovery step instead of claiming success.
+6. Return the branch, commit SHAs, PR URL, draft state, assignee, and referenced task. Do not start a dependent task until its blocker is integrated into trunk.
+
+Use this PR body structure, adapting prose to the user's language:
+
+```markdown
+## Related task
+
+Related task: <stable task ID or URL>
+
+## What changed
+
+<concise description of the implemented behavior and important implementation decisions>
+
+## Acceptance evidence
+
+<evidence for each acceptance criterion>
+
+## Validation
+
+<tests, lint, build/typecheck, and changed-code coverage>
+
+## E2E decision
+
+<tests executed, or the reason E2E is not required>
+
+## Risks
+
+<known risks and follow-up notes, or "None identified">
+```
 
 If publication fails, keep local commits intact and report the exact recovery step. Never retry with force or destructive cleanup automatically.

@@ -3,7 +3,7 @@
 ## Branches
 
 - Discover the documented trunk; default to the remote's default branch only when it is unambiguous.
-- Use one short-lived branch per task and one pull request per branch.
+- Use one short-lived branch per task and one draft pull request per branch.
 - Use `task/<id>-<slug>` when the repository has no branch convention.
 - Start dependent work only after blockers are integrated into trunk.
 - Update from trunk frequently. Rebase unpublished local work; use the repository's documented strategy for shared work.
@@ -29,4 +29,17 @@ Before push, require:
 - every acceptance criterion proven;
 - no known secrets or generated noise staged.
 
-Push and PR creation are external side effects and always require explicit authorization. Never force-push or rewrite shared history automatically.
+An approved request to complete or deliver a task authorizes its normal push and draft-PR delivery unless the user explicitly limits the work to local changes. Other external publication still requires explicit authorization. Never force-push or rewrite shared history automatically.
+
+## Draft pull-request contract
+
+A task is delivered only when its branch has a pull request against trunk that satisfies every item below:
+
+- the PR is in draft state;
+- the authenticated platform user is an assignee, resolved from the active API or CLI session rather than inferred from repository metadata;
+- the body explains what was implemented and records validation, E2E decision, and risks;
+- the body contains the exact canonical task or ticket ID/URL when one exists;
+- task references are neutral by default, and auto-close an issue only when the approved task requires it;
+- the final response reports the verified PR URL, draft state, assignee, and task reference.
+
+If any invariant cannot be verified, the task remains undelivered. Preserve the branch and commits and report the exact permission or command needed to finish.
