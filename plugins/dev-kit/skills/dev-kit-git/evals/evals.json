@@ -4,12 +4,12 @@
     {
       "id": 1,
       "prompt": "Conclua a entrega da tarefa GitHub #84. O código já passou em todos os testes e está commitado na branch da tarefa.",
-      "expected_output": "Entrega por PR em draft, atribuída ao usuário autenticado, com referência exata a #84 e descrição do que mudou.",
+      "expected_output": "Entrega por PR em draft, atribuída ao usuário autenticado, com Closes #84 e descrição do que mudou.",
       "files": [],
       "assertions": [
         "The response creates or updates a pull request in draft state.",
         "The response resolves and assigns the authenticated platform user rather than inferring an owner.",
-        "The pull-request body contains the exact task reference #84 and a substantive description of what changed.",
+        "The pull-request body contains Closes #84 and a substantive description of what changed.",
         "The response verifies draft state, assignee, body, and task reference before claiming delivery."
       ]
     },

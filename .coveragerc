@@ -3,7 +3,10 @@ branch = True
 parallel = True
 patch = subprocess
 source =
-    plugins/dev-kit/skills/dev-kit-create-tasks/scripts
+    plugins/dev-kit/skills/dev-kit-to-issues/scripts
+    plugins/dev-kit/skills/dev-kit-github/scripts
+    plugins/dev-kit/skills/dev-kit-develop/scripts
+    plugins/dev-kit/skills/dev-kit-setup/scripts
     plugins/dev-kit/skills/dev-kit-git/scripts
 
 [report]

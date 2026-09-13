@@ -14,11 +14,15 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "plugins/dev-kit/skills/dev-kit-create-tasks/scripts"
-sys.path.insert(0, str(SCRIPTS))
+TO_ISSUES_SCRIPTS = ROOT / "plugins/dev-kit/skills/dev-kit-to-issues/scripts"
+GITHUB_SCRIPTS = ROOT / "plugins/dev-kit/skills/dev-kit-github/scripts"
+sys.path.insert(0, str(TO_ISSUES_SCRIPTS))
+sys.path.insert(0, str(GITHUB_SCRIPTS))
 
 import publish_github_tasks
+import render_tasks
 import tasklib
+import validate_tasks
 
 
 def task(task_id: str = "TASK-1") -> dict:
@@ -26,11 +30,17 @@ def task(task_id: str = "TASK-1") -> dict:
         "id": task_id,
         "title": "Deliver account status",
         "summary": "Expose account status to signed-in users.",
-        "description": "Add the owned API and interface behavior needed to show the current account status.",
+        "description": "Add the owned account-status API and the signed-in account page so a user can see current status from the product UI, including rejection of unauthenticated access.",
         "repository": "example/product",
         "base_branch": "main",
-        "context": ["The authenticated account endpoint is the source of truth."],
-        "acceptance_criteria": ["A signed-in user sees the current account status."],
+        "context": [
+            "The authenticated account endpoint is the source of truth.",
+            "The account page is the only product surface that should display status.",
+        ],
+        "acceptance_criteria": [
+            "A signed-in user sees the current account status.",
+            "An unauthenticated request is rejected without leaking account data.",
+        ],
         "dependencies": [],
         "parent_id": None,
         "constraints": ["Preserve the existing account response fields."],
@@ -59,9 +69,9 @@ def bundle(tasks: list[dict] | None = None) -> dict:
 
 
 class TaskToolTests(unittest.TestCase):
-    def run_script(self, script: str, *arguments: str) -> subprocess.CompletedProcess[str]:
+    def run_script(self, script: str, *arguments: str, scripts: Path = TO_ISSUES_SCRIPTS) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(SCRIPTS / script), *arguments],
+            [sys.executable, str(scripts / script), *arguments],
             check=False,
             capture_output=True,
             text=True,
@@ -71,6 +81,61 @@ class TaskToolTests(unittest.TestCase):
         target = directory / "tasks.json"
         target.write_text(json.dumps(payload), encoding="utf-8")
         return target
+
+    def test_validate_and_render_clis(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_directory:
+            directory = Path(raw_directory)
+            source = self.write_bundle(directory, bundle())
+            output = io.StringIO()
+            with mock.patch.object(sys, "argv", ["validate_tasks.py", str(source)]), redirect_stdout(output):
+                self.assertEqual(validate_tasks.main(), 0)
+            self.assertIn("Valid task bundle", output.getvalue())
+
+            json_out = io.StringIO()
+            with mock.patch.object(
+                sys, "argv", ["validate_tasks.py", str(source), "--format", "json"]
+            ), redirect_stdout(json_out):
+                self.assertEqual(validate_tasks.main(), 0)
+            self.assertTrue(json.loads(json_out.getvalue())["valid"])
+
+            rendered = directory / "rendered"
+            with mock.patch.object(
+                sys, "argv", ["render_tasks.py", str(source), "--output-dir", str(rendered)]
+            ), redirect_stdout(io.StringIO()):
+                self.assertEqual(render_tasks.main(), 0)
+            self.assertTrue((rendered / "INDEX.md").exists())
+
+            parent = task("PARENT")
+            child = task("CHILD")
+            child["parent_id"] = "PARENT"
+            child["dependencies"] = ["PARENT"]
+            family = self.write_bundle(directory, bundle([child, parent]))
+            family_out = directory / "family"
+            with mock.patch.object(
+                sys, "argv", ["render_tasks.py", str(family), "--output-dir", str(family_out)]
+            ), redirect_stdout(io.StringIO()):
+                self.assertEqual(render_tasks.main(), 0)
+            index = (family_out / "INDEX.md").read_text(encoding="utf-8")
+            self.assertIn("parent: PARENT", index)
+            self.assertIn("blocked by: PARENT", index)
+
+            long_summary = bundle()
+            long_summary["tasks"][0]["summary"] = "x" * 301
+            warned = self.write_bundle(directory, long_summary)
+            with mock.patch.object(sys, "argv", ["validate_tasks.py", str(warned)]), redirect_stdout(io.StringIO()):
+                self.assertEqual(validate_tasks.main(), 0)
+
+            broken = directory / "broken.json"
+            broken.write_text("{not-json", encoding="utf-8")
+            err = io.StringIO()
+            with mock.patch.object(sys, "argv", ["validate_tasks.py", str(broken)]), redirect_stdout(err):
+                self.assertEqual(validate_tasks.main(), 1)
+
+            with mock.patch.object(
+                sys, "argv", ["render_tasks.py", str(broken), "--output-dir", str(directory / "nope")]
+            ):
+                with self.assertRaises(SystemExit):
+                    render_tasks.main()
 
     def test_validates_and_renders_a_valid_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as raw_directory:
@@ -142,6 +207,28 @@ class TaskToolTests(unittest.TestCase):
         self.assertTrue(any("unknown task" in error for error in errors))
         self.assertTrue(any("longer than 300" in warning for warning in warnings))
 
+    def test_rejects_vague_titles_and_unclear_acceptance_criteria(self) -> None:
+        vague = task("TASK-1")
+        vague["title"] = "Implement account status"
+        vague["acceptance_criteria"] = ["Add the status field.", "It works."]
+        errors, _ = tasklib.validate_bundle(bundle([vague]))
+        self.assertTrue(any("names an activity" in error for error in errors))
+        self.assertTrue(any("implementation step" in error for error in errors))
+        self.assertTrue(any("not a clear observable outcome" in error for error in errors))
+
+        placeholder = task("TASK-1")
+        placeholder["title"] = "TODO"
+        errors, _ = tasklib.validate_bundle(bundle([placeholder]))
+        self.assertTrue(any("placeholder" in error for error in errors))
+
+    def test_warns_when_issue_scope_is_too_small(self) -> None:
+        thin = task("TASK-1")
+        thin["description"] = "Add the status field."
+        thin["acceptance_criteria"] = ["The field exists."]
+        errors, warnings = tasklib.validate_bundle(bundle([thin]))
+        self.assertEqual(errors, [])
+        self.assertTrue(any("too small for an AI session" in warning for warning in warnings))
+
     def test_rejects_invalid_bundle_roots_and_json(self) -> None:
         errors, _ = tasklib.validate_bundle({"version": 1, "language": "en", "source": {}, "tasks": []})
         self.assertTrue(any("tasks must be" in error for error in errors))
@@ -176,7 +263,11 @@ class TaskToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw_directory:
             source = self.write_bundle(Path(raw_directory), bundle())
             result = self.run_script(
-                "publish_github_tasks.py", str(source), "--repo", "example/product"
+                "publish_github_tasks.py",
+                str(source),
+                "--repo",
+                "example/product",
+                scripts=GITHUB_SCRIPTS,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             payload = json.loads(result.stdout)
@@ -384,6 +475,71 @@ class TaskToolTests(unittest.TestCase):
             publish_github_tasks.subprocess, "run", return_value=completed
         ), self.assertRaisesRegex(RuntimeError, "denied"):
             publish_github_tasks.run_gh(["auth", "status"])
+
+    def test_rejects_local_machine_paths_and_non_github_repositories(self) -> None:
+        local = task("TASK-1")
+        local["context"] = ["See /Users/augusto/secret/spec.md for the contract."]
+        errors, _ = tasklib.validate_bundle(bundle([local]))
+        self.assertTrue(any("local machine path" in error for error in errors))
+
+        local["context"] = ["See C:\\Users\\augusto\\spec.md"]
+        local["repository"] = "/tmp/product"
+        errors, _ = tasklib.validate_bundle(bundle([local]))
+        self.assertTrue(any("OWNER/REPO" in error for error in errors))
+        self.assertTrue(any("local machine path" in error for error in errors))
+
+        portable = task("TASK-1")
+        portable["repository"] = "https://github.com/example/product.git"
+        errors, _ = tasklib.validate_bundle(bundle([portable]))
+        self.assertEqual(errors, [])
+        self.assertEqual(tasklib.normalize_github_repo(portable["repository"]), "example/product")
+
+    def test_rejects_local_source_reference(self) -> None:
+        payload = bundle()
+        payload["source"]["reference"] = "~/Documents/rfc.md"
+        errors, _ = tasklib.validate_bundle(payload)
+        self.assertTrue(any("local machine path" in error for error in errors))
+
+    def test_publisher_rejects_cross_repo_dependencies(self) -> None:
+        parent = task("PARENT")
+        child = task("CHILD")
+        child["parent_id"] = "PARENT"
+        child["repository"] = "other/product"
+        with tempfile.TemporaryDirectory() as raw_directory:
+            source = self.write_bundle(Path(raw_directory), bundle([parent, child]))
+            result = self.run_script("publish_github_tasks.py", str(source), scripts=GITHUB_SCRIPTS)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("not in repository", result.stderr)
+
+    def test_publisher_infers_repo_from_the_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_directory:
+            source = self.write_bundle(Path(raw_directory), bundle())
+            result = self.run_script("publish_github_tasks.py", str(source), scripts=GITHUB_SCRIPTS)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["repo"], "example/product")
+            self.assertEqual(payload["operations"][0]["repo"], "example/product")
+
+    def test_publisher_dry_run_via_main(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_directory:
+            source = self.write_bundle(Path(raw_directory), bundle())
+            arguments = ["publish_github_tasks.py", str(source)]
+            output = io.StringIO()
+            with mock.patch.object(sys, "argv", arguments), redirect_stdout(output):
+                self.assertEqual(publish_github_tasks.main(), 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["mode"], "dry-run")
+            self.assertEqual(payload["repo"], "example/product")
+
+    def test_publisher_apply_requires_gh(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_directory:
+            source = self.write_bundle(Path(raw_directory), bundle())
+            arguments = ["publish_github_tasks.py", str(source), "--apply"]
+            with mock.patch.object(sys, "argv", arguments), mock.patch.object(
+                publish_github_tasks.shutil, "which", return_value=None
+            ):
+                with self.assertRaisesRegex(SystemExit, "gh is required"):
+                    publish_github_tasks.main()
 
 
 if __name__ == "__main__":

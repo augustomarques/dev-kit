@@ -1,4 +1,0 @@
-interface:
-  display_name: "Dev Kit: Create Tasks"
-  short_description: "Create complete, dependency-aware engineering tasks"
-  default_prompt: "Use $dev-kit-create-tasks to turn this specification into executable tasks."

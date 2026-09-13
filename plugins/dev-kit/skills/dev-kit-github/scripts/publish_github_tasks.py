@@ -10,12 +10,18 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+import sys
 from pathlib import Path
 from typing import Any
 
-from tasklib import (
+TO_ISSUES_SCRIPTS = Path(__file__).resolve().parents[2] / "dev-kit-to-issues" / "scripts"
+if str(TO_ISSUES_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(TO_ISSUES_SCRIPTS))
+
+from tasklib import (  # noqa: E402
     dump_json,
     load_bundle,
+    normalize_github_repo,
     render_task,
     state_path_for,
     topological_tasks,
@@ -191,10 +197,28 @@ def publish_tasks(bundle: dict[str, Any], repo: str, state_path: Path) -> dict[s
         return issue_map
 
 
+def repo_for_task(task: dict[str, Any], override: str | None) -> str:
+    return normalize_github_repo(override or task["repository"])
+
+
+def grouped_by_repo(bundle: dict[str, Any], override: str | None) -> dict[str, list[dict[str, Any]]]:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for task in topological_tasks(bundle):
+        groups.setdefault(repo_for_task(task, override), []).append(task)
+    return groups
+
+
+def state_path_for_repo(base: Path, repo: str, single_repo: bool) -> Path:
+    if single_repo:
+        return base
+    owner, name = repo.split("/", 1)
+    return base.with_name(f"{base.stem}.{owner}-{name}{base.suffix}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bundle", type=Path)
-    parser.add_argument("--repo", required=True, help="GitHub repository as OWNER/REPO")
+    parser.add_argument("--repo", help="Override every issue target as OWNER/REPO")
     parser.add_argument("--apply", action="store_true", help="Create issues; default is dry-run")
     parser.add_argument("--state", type=Path, help="Resume state path")
     args = parser.parse_args()
@@ -203,28 +227,54 @@ def main() -> int:
     errors, _ = validate_bundle(bundle)
     if errors:
         parser.error("invalid bundle:\n" + "\n".join(errors))
-    ordered = topological_tasks(bundle)
-    state_path = args.state or state_path_for(args.bundle)
+    groups = grouped_by_repo(bundle, args.repo)
+    for repo, tasks in groups.items():
+        ids = {task["id"] for task in tasks}
+        for task in tasks:
+            required = [item for item in [task.get("parent_id"), *task["dependencies"]] if item]
+            missing = [item for item in required if item not in ids]
+            if missing:
+                parser.error(
+                    f"{task['id']} depends on {', '.join(missing)}, which are not in repository {repo}"
+                )
+    base_state = args.state or state_path_for(args.bundle)
+    single_repo = len(groups) == 1
 
     if not args.apply:
         plan = []
-        for task in ordered:
-            plan.append({
-                "id": task["id"],
-                "title": task["title"],
-                "parent_id": task.get("parent_id"),
-                "blocked_by": task["dependencies"],
-                "operation": "create",
-            })
-        print(json.dumps({"mode": "dry-run", "repo": args.repo, "state": str(state_path), "operations": plan}, indent=2, ensure_ascii=False))
+        for repo, tasks in groups.items():
+            for task in tasks:
+                plan.append({
+                    "id": task["id"],
+                    "title": task["title"],
+                    "repo": repo,
+                    "parent_id": task.get("parent_id"),
+                    "blocked_by": task["dependencies"],
+                    "operation": "create",
+                })
+        payload = {
+            "mode": "dry-run",
+            "repos": sorted(groups),
+            "state": str(base_state) if single_repo else str(base_state.parent),
+            "operations": plan,
+        }
+        if single_repo:
+            payload["repo"] = next(iter(groups))
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
 
     if shutil.which("gh") is None:
         raise SystemExit("gh is required for --apply")
     run_gh(["auth", "status"])
-    issue_map = publish_tasks(bundle, args.repo, state_path)
+    issue_map: dict[str, str] = {}
+    published: dict[str, dict[str, str]] = {}
+    for repo, tasks in groups.items():
+        subset = {**bundle, "tasks": tasks}
+        state_path = state_path_for_repo(base_state, repo, single_repo)
+        published[repo] = publish_tasks(subset, repo, state_path)
+        issue_map.update(published[repo])
 
-    print(json.dumps({"repo": args.repo, "issues": issue_map}, indent=2, ensure_ascii=False))
+    print(json.dumps({"repos": published, "issues": issue_map}, indent=2, ensure_ascii=False))
     return 0
 
 

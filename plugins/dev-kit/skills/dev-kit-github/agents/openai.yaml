@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: GitHub"
+  short_description: "Publish approved issues to their GitHub repositories"
+  default_prompt: "Use $dev-kit-github to create GitHub Issues from this approved issue bundle in each corresponding repository."

@@ -5,7 +5,7 @@ description: Evaluate whether a software change needs end-to-end coverage, then 
 
 # Evaluate and Test End to End
 
-Always return one decision: `required` or `not-required`, with evidence-based rationale. Read [references/e2e-policy.md](references/e2e-policy.md) for the decision matrix and implementation standards.
+Always return one decision: `required` or `not-required`, with evidence-based rationale. Read [references/e2e-policy.md](references/e2e-policy.md) for the decision matrix and implementation standards. If the rubric does not settle the decision, read `../dev-kit-grill-me/SKILL.md` before implementing or skipping E2E.
 
 ## 1. Evaluate
 

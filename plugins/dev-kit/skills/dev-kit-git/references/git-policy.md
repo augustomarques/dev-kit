@@ -37,9 +37,10 @@ A task is delivered only when its branch has a pull request against trunk that s
 
 - the PR is in draft state;
 - the authenticated platform user is an assignee, resolved from the active API or CLI session rather than inferred from repository metadata;
-- the body explains what was implemented and records validation, E2E decision, and risks;
-- the body contains the exact canonical task or ticket ID/URL when one exists;
-- task references are neutral by default, and auto-close an issue only when the approved task requires it;
+- the body contains a substantive description of the alterations: what behavior changed and the decisions that matter;
+- the body also records acceptance evidence, validation, E2E decision, and risks;
+- the body contains `Closes #<number>` when a GitHub Issue exists, so merging the PR closes that issue;
+- the number is the canonical issue, not a guessed ticket; omit the closer when no GitHub Issue exists;
 - the final response reports the verified PR URL, draft state, assignee, and task reference.
 
 If any invariant cannot be verified, the task remains undelivered. Preserve the branch and commits and report the exact permission or command needed to finish.

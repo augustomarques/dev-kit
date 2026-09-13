@@ -1,4 +1,4 @@
 interface:
   display_name: "Dev Kit: Develop"
-  short_description: "Implement approved tasks with test-driven delivery"
-  default_prompt: "Use $dev-kit-develop to implement this task and meet every acceptance criterion."
+  short_description: "Implement an issue with TDD, review, and a draft PR"
+  default_prompt: "Use $dev-kit-develop to implement this issue on its branch, review it, and open a draft pull request."
