@@ -5,16 +5,16 @@ description: Perform a read-only code review of a pull-request URL, repository d
 
 # Review a Software Change
 
-Remain read-only when invoked directly. In the orchestrated `$dev-kit` flow, return findings to development for correction, but do not mutate the code yourself.
+Remain read-only when invoked directly or as the `$dev-kit-develop` review subagent. Return findings to the parent; never mutate the code yourself.
 
 ## 1. Pin the review inputs
 
-1. Resolve the repository and immutable comparison point. For a PR, fetch its base, head, metadata, checks, commits, and diff. For local work, prefer the merge-base with the documented trunk. Ask if no trustworthy base can be discovered.
+1. Resolve the repository and immutable comparison point. For a PR, fetch its base, head, metadata, checks, commits, and diff. For local work, prefer the merge-base with the documented trunk. If no trustworthy base can be discovered, read `../dev-kit-grill-me/SKILL.md`.
 2. Resolve the originating task or specification from the explicit input, PR/commit references, or matching repository documents. If none exists, say so; never invent acceptance criteria.
 3. Read repository instructions, contribution rules, ADRs, test configuration, and the files surrounding each changed public interface.
 4. Confirm the diff is non-empty and identify generated or vendored files that should not receive manual findings.
 
-Read [references/review-rubric.md](references/review-rubric.md) before reporting findings.
+Read [references/review-rubric.md](references/review-rubric.md) before reporting findings. When `$dev-kit-develop` spawned this review, also follow [references/review-report.md](references/review-report.md) and return only that report.
 
 ## 2. Review independent axes
 
@@ -42,4 +42,4 @@ Use this result:
 - `FAIL`: at least one blocking finding or failed gate.
 - `BLOCKED`: required evidence could not be obtained, including unavailable coverage or required E2E execution.
 
-Include an acceptance-criteria matrix and a command-results table. Mention residual risks and non-blocking suggestions after blockers. In orchestrated mode, return `FAIL` or `BLOCKED` to development and repeat the full affected gate after correction.
+Include an acceptance-criteria matrix and a command-results table. Mention residual risks and non-blocking suggestions after blockers. Prefer the template in [references/review-report.md](references/review-report.md). In `$dev-kit-develop`, a `FAIL` or any `Critical` finding requires a new review after correction. `BLOCKED` stops delivery.

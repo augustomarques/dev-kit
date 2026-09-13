@@ -10,8 +10,25 @@ import sys
 from pathlib import Path
 from typing import Any
 
-CHANGE_HEADINGS = ("what changed", "o que foi feito")
-TASK_LABELS = ("related task", "tarefa relacionada")
+CHANGE_HEADINGS = (
+    "what changed",
+    "o que foi feito",
+    "descrição das alterações",
+    "descricao das alteracoes",
+    "alterações",
+    "alteracoes",
+)
+TASK_LABELS = ("related task", "tarefa relacionada", "related issue", "issue relacionada")
+CLOSING_KEYWORDS = re.compile(
+    r"(?im)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:https://github\.com/[^/\s]+/[^/\s]+/issues/)?#?(?P<number>\d+)\b"
+)
+ISSUE_NUMBER = re.compile(
+    r"(?:"
+    r"https://github\.com/[^/]+/[^/]+/issues/(?P<url>\d+)"
+    r"|(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#(?P<hash>\d+)"
+    r"|(?P<plain>\d+)"
+    r")\s*$"
+)
 PLACEHOLDERS = {"n/a", "na", "none", "nenhum", "tbd", "todo", "to do"}
 
 
@@ -45,6 +62,26 @@ def _related_task_refs(body: str) -> set[str]:
     }
 
 
+def issue_number(value: str | None) -> str | None:
+    if not value:
+        return None
+    match = ISSUE_NUMBER.fullmatch(value.strip())
+    if match is None:
+        return None
+    return match.group("url") or match.group("hash") or match.group("plain")
+
+
+def _closing_issue_numbers(body: str) -> set[str]:
+    return {match.group("number") for match in CLOSING_KEYWORDS.finditer(body)}
+
+
+def _has_task_reference(body: str, task_ref: str) -> bool:
+    number = issue_number(task_ref)
+    if number:
+        return number in _closing_issue_numbers(body)
+    return task_ref.strip() in _related_task_refs(body)
+
+
 def _is_substantive_description(value: str | None) -> bool:
     if not value:
         return False
@@ -70,8 +107,13 @@ def validate(snapshot: dict[str, Any], assignee: str, task_ref: str | None = Non
         change_description = _section(body, CHANGE_HEADINGS)
         if not _is_substantive_description(change_description):
             errors.append("pull request body must describe what changed")
-        if task_ref and task_ref.strip() not in _related_task_refs(body):
-            errors.append(f"pull request body must reference task {task_ref!r}")
+        if task_ref and not _has_task_reference(body, task_ref):
+            if issue_number(task_ref):
+                errors.append(
+                    f"pull request body must close issue #{issue_number(task_ref)} with Closes #{issue_number(task_ref)}"
+                )
+            else:
+                errors.append(f"pull request body must reference task {task_ref!r}")
     if not snapshot.get("url"):
         errors.append("pull request URL is missing")
     return errors

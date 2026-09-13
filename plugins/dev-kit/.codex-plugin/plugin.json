@@ -1,7 +1,7 @@
 {
   "name": "dev-kit",
-  "version": "0.1.0+codex.20260806121154",
-  "description": "Plan, implement, test, review, and deliver software changes with explicit quality gates.",
+  "version": "0.2.0+codex.20260806121154",
+  "description": "Author issues, publish them to GitHub, implement, test, review, and deliver software changes with explicit quality gates.",
   "author": {
     "name": "Augusto Marques",
     "url": "https://github.com/augustomarques"
@@ -14,13 +14,15 @@
     "tdd",
     "code-review",
     "e2e",
-    "git"
+    "git",
+    "github",
+    "issues"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Dev Kit",
-    "shortDescription": "A guarded, end-to-end software delivery workflow.",
-    "longDescription": "Turn technical input into executable tasks, implement with test-driven development, evaluate end-to-end coverage, review every acceptance criterion, and prepare atomic trunk-based delivery.",
+    "shortDescription": "A guarded pipeline from issues through draft pull requests.",
+    "longDescription": "Turn technical input into self-contained GitHub Issues, implement the full scope with test-driven development, review through a read-only subagent, and deliver a draft pull request. Compose spans such as develop -> git or to-issues -> git.",
     "developerName": "Augusto Marques",
     "category": "Developer Tools",
     "capabilities": [
@@ -29,8 +31,9 @@
     ],
     "websiteURL": "https://github.com/augustomarques/dev-kit",
     "defaultPrompt": [
-      "Turn this specification into tasks and deliver them.",
-      "Implement this task with tests and review it.",
+      "Turn this specification into GitHub Issues and deliver them.",
+      "Run develop -> git for this GitHub Issue.",
+      "Grill every doubt before turning this RFC into issues.",
       "Review this pull request against its requirements."
     ]
   }

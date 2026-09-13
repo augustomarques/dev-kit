@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: Setup"
+  short_description: "Install and verify Dev Kit prerequisites"
+  default_prompt: "Use $dev-kit-setup to install and verify everything needed to run Dev Kit."

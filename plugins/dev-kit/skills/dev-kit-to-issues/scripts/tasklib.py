@@ -8,6 +8,36 @@ from pathlib import Path
 from typing import Any
 
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+GITHUB_REPO_PATTERN = re.compile(
+    r"^(?:https://github\.com/)?([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$"
+)
+PLACEHOLDER_TITLE = re.compile(
+    r"^(?:wip|todo|tbd|task\s*\d+|issue\s*\d+|fix it|corrigir)\.?$",
+    re.IGNORECASE,
+)
+ACTIVITY_TITLE = re.compile(
+    r"^(?:implement(?:ar)?|work on|trabalhar em|investigate|investigar)\b",
+    re.IGNORECASE,
+)
+VAGUE_CRITERION = re.compile(
+    r"^(?:it works|as expected|done|completo|ok|fine|tbd|funciona|como esperado)\.?$",
+    re.IGNORECASE,
+)
+STEP_CRITERION = re.compile(
+    r"^(?:add|update|implement|create|write|change|edit|refactor|fix|remove|delete|"
+    r"adicionar|atualizar|implementar|criar|escrever|alterar|remover)\b",
+    re.IGNORECASE,
+)
+LOCAL_PATH_PATTERN = re.compile(
+    r"(?:"
+    r"\bfile:///"
+    r"|~/[A-Za-z0-9._-]"
+    r"|\$HOME(?:/|\\)"
+    r"|[A-Za-z]:\\"
+    r"|/(?:Users|home|private/var|var/folders|tmp|Volumes)/"
+    r")",
+    re.IGNORECASE,
+)
 REQUIRED_TASK_FIELDS = {
     "id",
     "title",
@@ -55,12 +85,62 @@ def _check_string_list(
         errors.append(f"{field} must not be empty")
 
 
+def normalize_github_repo(value: str) -> str:
+    match = GITHUB_REPO_PATTERN.fullmatch(value.strip())
+    if match is None:
+        raise ValueError(f"repository {value!r} must be OWNER/REPO or a GitHub URL")
+    return f"{match.group(1)}/{match.group(2)}"
+
+
 def _find_code_fences(value: Any, field: str, errors: list[str]) -> None:
     if isinstance(value, str) and "```" in value:
         errors.append(f"{field} contains a code fence; use code_excerpts with a justification")
     elif isinstance(value, list):
         for index, item in enumerate(value):
             _find_code_fences(item, f"{field}[{index}]", errors)
+
+
+def _review_issue_prose(task: dict[str, Any], prefix: str, errors: list[str], warnings: list[str]) -> None:
+    title = task.get("title")
+    if _is_nonempty_string(title):
+        stripped = title.strip()
+        if PLACEHOLDER_TITLE.fullmatch(stripped):
+            errors.append(f"{prefix}.title is a placeholder; write a clear objective outcome")
+        elif ACTIVITY_TITLE.match(stripped):
+            errors.append(f"{prefix}.title names an activity; write a clear objective outcome")
+        elif len(stripped) < 12:
+            warnings.append(f"{prefix}.title is too short to be a clear objective outcome")
+        elif len(stripped) > 90:
+            warnings.append(f"{prefix}.title is too long to stay clear and objective")
+
+    description = task.get("description")
+    if _is_nonempty_string(description) and len(description.strip()) < 80:
+        warnings.append(f"{prefix}.description is too short to carry the facts needed for execution")
+
+    criteria = task.get("acceptance_criteria")
+    if isinstance(criteria, list):
+        for index, item in enumerate(criteria):
+            if not _is_nonempty_string(item):
+                continue
+            field = f"{prefix}.acceptance_criteria[{index}]"
+            stripped = item.strip()
+            if VAGUE_CRITERION.fullmatch(stripped):
+                errors.append(f"{field} is not a clear observable outcome")
+            elif STEP_CRITERION.match(stripped):
+                errors.append(f"{field} is an implementation step; write an observable outcome")
+            elif len(stripped) < 24:
+                warnings.append(f"{field} is too short to be a clear acceptance criterion")
+
+
+def _find_local_paths(value: Any, field: str, errors: list[str]) -> None:
+    if isinstance(value, str) and LOCAL_PATH_PATTERN.search(value):
+        errors.append(f"{field} references a local machine path; embed the portable facts instead")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            _find_local_paths(item, f"{field}[{index}]", errors)
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            _find_local_paths(item, f"{field}.{key}", errors)
 
 
 def validate_bundle(bundle: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -79,6 +159,8 @@ def validate_bundle(bundle: dict[str, Any]) -> tuple[list[str], list[str]]:
             errors.append("source.type must be a non-empty string")
         if not isinstance(source.get("reference"), str):
             errors.append("source.reference must be a string")
+        elif source.get("reference"):
+            _find_local_paths(source.get("reference"), "source.reference", errors)
 
     tasks = bundle.get("tasks")
     if not isinstance(tasks, list) or not tasks:
@@ -107,6 +189,13 @@ def validate_bundle(bundle: dict[str, Any]) -> tuple[list[str], list[str]]:
         for field in ("title", "summary", "description", "repository", "base_branch"):
             if not _is_nonempty_string(task.get(field)):
                 errors.append(f"{prefix}.{field} must be a non-empty string")
+        if _is_nonempty_string(task.get("repository")):
+            try:
+                normalize_github_repo(task["repository"])
+            except ValueError:
+                errors.append(
+                    f"{prefix}.repository must be OWNER/REPO or https://github.com/OWNER/REPO"
+                )
         for field in ("context", "acceptance_criteria"):
             _check_string_list(task.get(field), f"{prefix}.{field}", errors, nonempty=True)
         for field in ("dependencies", "constraints", "out_of_scope"):
@@ -117,6 +206,11 @@ def validate_bundle(bundle: dict[str, Any]) -> tuple[list[str], list[str]]:
 
         for field in ("title", "summary", "description", "context", "acceptance_criteria", "constraints", "out_of_scope"):
             _find_code_fences(task.get(field), f"{prefix}.{field}", errors)
+        _find_local_paths(
+            {key: task.get(key) for key in ("title", "summary", "description", "context", "acceptance_criteria", "constraints", "out_of_scope", "base_branch")},
+            prefix,
+            errors,
+        )
 
         strategy = task.get("test_strategy")
         if not isinstance(strategy, dict):
@@ -152,6 +246,18 @@ def validate_bundle(bundle: dict[str, Any]) -> tuple[list[str], list[str]]:
 
         if isinstance(task.get("summary"), str) and len(task["summary"]) > 300:
             warnings.append(f"{prefix}.summary is longer than 300 characters")
+        _review_issue_prose(task, prefix, errors, warnings)
+        criteria = task.get("acceptance_criteria")
+        description = task.get("description")
+        if (
+            isinstance(criteria, list)
+            and len(criteria) < 2
+            and isinstance(description, str)
+            and len(description.strip()) < 200
+        ):
+            warnings.append(
+                f"{prefix} looks too small for an AI session; merge it into a vertical slice or expand the outcome"
+            )
 
     known_ids = set(ids)
     filenames: dict[str, str] = {}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: Grill Me"
+  short_description: "Settle doubts through frontier-round interviews"
+  default_prompt: "Use $dev-kit-grill-me to settle every material doubt before continuing."

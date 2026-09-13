@@ -20,7 +20,7 @@ class PullRequestDeliveryValidatorTests(unittest.TestCase):
             "url": "https://github.com/acme/widgets/pull/42",
             "isDraft": True,
             "assignees": [{"login": "augustomarques"}],
-            "body": "## Related task\n\nRelated task: #17\n\n## What changed\n\nAdded guarded delivery.\n",
+            "body": "## Related issue\n\nCloses #17\n\n## What changed\n\nAdded guarded delivery.\n",
         }
 
     def test_accepts_complete_draft_delivery(self) -> None:
@@ -32,7 +32,7 @@ class PullRequestDeliveryValidatorTests(unittest.TestCase):
     def test_accepts_portuguese_change_heading_and_string_assignee(self) -> None:
         snapshot = self.valid_snapshot()
         snapshot["assignees"] = ["augustomarques"]
-        snapshot["body"] = "## O que foi feito\n\nAdiciona a entrega protegida.\n"
+        snapshot["body"] = "## Descrição das alterações\n\nAdiciona a entrega protegida.\n"
         self.assertEqual(validate_pr_delivery.validate(snapshot, "augustomarques"), [])
 
     def test_rejects_non_draft_wrong_assignee_missing_description_and_task(self) -> None:
@@ -65,9 +65,20 @@ class PullRequestDeliveryValidatorTests(unittest.TestCase):
         snapshot = self.valid_snapshot()
         snapshot["body"] = str(snapshot["body"]).replace("#17", "#170")
         errors = validate_pr_delivery.validate(snapshot, "augustomarques", "#17")
-        self.assertEqual(errors, ["pull request body must reference task '#17'"])
+        self.assertEqual(
+            errors, ["pull request body must close issue #17 with Closes #17"]
+        )
 
-        snapshot["body"] = str(snapshot["body"]).replace("#170", "TASK-90")
+        snapshot["body"] = "## Related issue\n\nRelated task: #17\n\n## What changed\n\nAdded guarded delivery.\n"
+        errors = validate_pr_delivery.validate(snapshot, "augustomarques", "#17")
+        self.assertEqual(
+            errors, ["pull request body must close issue #17 with Closes #17"]
+        )
+
+        snapshot["body"] = "## Related issue\n\nClose #17\n\n## What changed\n\nAdded guarded delivery.\n"
+        self.assertEqual(validate_pr_delivery.validate(snapshot, "augustomarques", "#17"), [])
+
+        snapshot["body"] = "## Related task\n\nRelated task: TASK-90\n\n## What changed\n\nAdded guarded delivery.\n"
         errors = validate_pr_delivery.validate(snapshot, "augustomarques", "TASK-9")
         self.assertEqual(errors, ["pull request body must reference task 'TASK-9'"])
 

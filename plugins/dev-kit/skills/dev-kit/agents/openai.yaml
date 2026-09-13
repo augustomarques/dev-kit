@@ -1,4 +1,4 @@
 interface:
   display_name: "Dev Kit"
-  short_description: "Orchestrate a complete, verified development flow"
-  default_prompt: "Use $dev-kit to plan, implement, test, review, and prepare my change."
+  short_description: "Orchestrate issue, implementation, and git delivery pipelines"
+  default_prompt: "Use $dev-kit to run a pipeline such as develop -> git or to-issues -> git."

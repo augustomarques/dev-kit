@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Kit: To Issues"
+  short_description: "Create complete, dependency-aware engineering issues"
+  default_prompt: "Use $dev-kit-to-issues to break this RFC into AI-sized executable issues."
